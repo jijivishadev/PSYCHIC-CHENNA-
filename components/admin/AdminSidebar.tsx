@@ -47,7 +47,7 @@ export default function AdminSidebar({ isOpen, onClose }: { isOpen: boolean; onC
     <aside className={`fixed left-0 top-0 z-[150] h-screen w-72 bg-[#1A0B2E] border-r border-[#D4AF37]/20 p-4 transition-transform ${isOpen || isDesktop ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="bg-white/5 p-4 rounded-xl mb-6 border border-[#D4AF37]/20">
         <h2 className="text-[#D4AF37] font-bold tracking-widest text-xs uppercase">Admin Panel</h2>
-        <p className="text-white font-bold">Million Dollar Coach</p>
+        <p className="text-white font-bold">Psychic Chennai</p>
       </div>
       <nav className="space-y-1">
         {sidebarLinks.map((link) => {

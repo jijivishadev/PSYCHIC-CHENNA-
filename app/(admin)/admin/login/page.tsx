@@ -119,7 +119,7 @@ export default function AdminLoginPage() {
               />
             </div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#D4AF37]/85">
-              Million Dollar Coach
+              Psychic Chennai
             </p>
             <h1 className={`${playfair.className} mt-3 text-3xl font-bold text-[#D4AF37]`}>
               Command Center
