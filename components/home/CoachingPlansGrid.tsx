@@ -22,7 +22,7 @@ export default function CoachingPlansGrid({ plans }: CoachingPlansGridProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => (
           <article
-            key={plan.title}
+            key={`${plan.title}-${plan.price}`}
             className="rounded-2xl border border-transparent bg-white p-6 shadow-md transition-all duration-300 hover:border-[#D4AF37] hover:shadow-xl"
           >
             <h3 className="text-2xl font-semibold text-[#4B2E83]">{plan.title}</h3>
@@ -31,7 +31,7 @@ export default function CoachingPlansGrid({ plans }: CoachingPlansGridProps) {
 
             <ul className="mt-5 space-y-2 text-sm text-[#333333]">
               {plan.highlights.map((item, index) => (
-                <li key={`${plan.title}-${index}`} className="flex items-start gap-2">
+                <li key={`${plan.price}-${index}`} className="flex items-start gap-2">
                   <span className="mt-1 h-2 w-2 rounded-full bg-[#D4AF37]" />
                   <span>{item}</span>
                 </li>

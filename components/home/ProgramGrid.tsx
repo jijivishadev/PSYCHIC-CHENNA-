@@ -152,8 +152,8 @@ export default function ProgramGrid() {
                 <div className="absolute inset-0 flex h-full flex-col rounded-2xl bg-[#4B2E83] p-7 text-[#F3ECFF] shadow-sm [backface-visibility:hidden] [transform:rotateY(180deg)]">
                   <h3 className={`${playfair.className} text-2xl text-[#D4AF37]`}>What you get</h3>
                   <ul className="mt-5 space-y-3 text-sm leading-7">
-                    {card.flipContent.map((point) => (
-                      <li key={point} className="flex items-start gap-3">
+                    {card.flipContent.map((point, index) => (
+                      <li key={`${card.id}-${index}`} className="flex items-start gap-3">
                         <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4AF37]" />
                         <span>{point}</span>
                       </li>

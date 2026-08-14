@@ -17,6 +17,7 @@ const mobileDrawerLinks = [
   { label: "Home", href: "/" },
   { label: "About", href: "/about" },
   { label: "Testimonials", href: "/testimonials" },
+  { label: "Blogs", href: "/blogs" },
   { label: "Resources", href: "#home-discovery" },
   { label: "FAQs", href: "/faqs" },
   { label: "Survey", href: "/survey" },
