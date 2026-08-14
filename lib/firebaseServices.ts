@@ -45,17 +45,37 @@ let cachedPathwaysContent: PathwaysContent | null = null;
 let cachedPathwaysContentTime: number = 0;
 
 // ============ DOCUMENT REFERENCES ============
-const SITE_ASSETS_REF = doc(db, "settings", "site_assets");
-const ANNOUNCEMENT_BAR_REF = doc(db, "settings", "announcement_bar");
-const HOME_MESSAGE_REF = doc(db, "pages", "home_message");
-const PATHWAYS_REF = doc(db, "pages", "pathways");
+const getSiteAssetsRef = () => (db ? doc(db, "settings", "site_assets") : null);
+const getAnnouncementBarRef = () => (db ? doc(db, "settings", "announcement_bar") : null);
+const getHomeMessageRef = () => (db ? doc(db, "pages", "home_message") : null);
+const getPathwaysRef = () => (db ? doc(db, "pages", "pathways") : null);
 const OFFERS_COLLECTION = "offers";
-const ABOUT_PAGE_REF = doc(db, "pages", "about");
-const VIDEO_SECTION_REF = doc(db, "pages", "about_video");
-const MISSION_REF = doc(db, "pages", "about_mission");
-const RECOGNITIONS_REF = doc(db, "pages", "about_recognitions");
-const IMAGE_MANAGER_REF = doc(db, "settings", "imageManager");
-const PROMOTIONAL_EVENT_REF = doc(db, "events", "promotional_event");
+const getAboutPageRef = () => (db ? doc(db, "pages", "about") : null);
+const getVideoSectionRef = () => (db ? doc(db, "pages", "about_video") : null);
+const getMissionRef = () => (db ? doc(db, "pages", "about_mission") : null);
+const getRecognitionsRef = () => (db ? doc(db, "pages", "about_recognitions") : null);
+const getImageManagerRef = () => (db ? doc(db, "settings", "imageManager") : null);
+const getPromotionalEventRef = () => (db ? doc(db, "events", "promotional_event") : null);
+
+function createFirebaseUnavailableError(feature: string): Error {
+  return new Error(`Firebase ${feature} is not available. Check NEXT_PUBLIC_FIREBASE_* environment variables.`);
+}
+
+function requireFirestore(feature: string) {
+  if (!db) {
+    throw createFirebaseUnavailableError(feature);
+  }
+
+  return db;
+}
+
+function requireStorage() {
+  if (!storage) {
+    throw createFirebaseUnavailableError("Storage");
+  }
+
+  return storage;
+}
 
 // ============ COLLECTION REFERENCES ============
 const EARLY_LIFE_COLLECTION = "about_early_life";
@@ -132,6 +152,8 @@ const DEFAULT_PATHWAYS_CONTENT: PathwaysContent = {
 
 export async function getCoachingPlans(): Promise<CoachingPlan[]> {
   try {
+    if (!db) return [];
+
     const response = await fetch("/api/offers", { cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Offers API failed with status ${response.status}`);
@@ -161,6 +183,8 @@ export async function getCoachingPlans(): Promise<CoachingPlan[]> {
 }
 
 export async function updateCoachingPlan(id: string, data: Partial<Omit<CoachingPlan, "id">>) {
+  requireFirestore("Firestore write");
+
   try {
     const response = await fetch("/api/offers", {
       method: "PATCH",
@@ -180,6 +204,8 @@ export async function updateCoachingPlan(id: string, data: Partial<Omit<Coaching
 }
 
 export async function addCoachingPlan(plan: Omit<CoachingPlan, "id">) {
+  requireFirestore("Firestore write");
+
   return await addDoc(collection(db, OFFERS_COLLECTION), { ...plan, updatedAt: Date.now() });
 }
 
@@ -189,7 +215,15 @@ export async function initializeOffersIfEmpty() {
 }
 
 export async function getAnnouncementBarContent(): Promise<AnnouncementBarContent> {
-  const snapshot = await getDoc(ANNOUNCEMENT_BAR_REF);
+  const ref = getAnnouncementBarRef();
+  if (!ref) {
+    return {
+      text: DEFAULT_ANNOUNCEMENT_TEXT,
+      isEnabled: true,
+    };
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {
       text: DEFAULT_ANNOUNCEMENT_TEXT,
@@ -209,8 +243,11 @@ export async function getAnnouncementBarContent(): Promise<AnnouncementBarConten
 }
 
 export async function updateAnnouncementBarContent(content: Partial<AnnouncementBarContent>) {
+  const ref = getAnnouncementBarRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    ANNOUNCEMENT_BAR_REF,
+    ref,
     {
       ...content,
       updatedAt: Date.now(),
@@ -220,7 +257,10 @@ export async function updateAnnouncementBarContent(content: Partial<Announcement
 }
 
 export async function getHomeMessageContent(): Promise<HomeMessageContent> {
-  const snapshot = await getDoc(HOME_MESSAGE_REF);
+  const ref = getHomeMessageRef();
+  if (!ref) return DEFAULT_HOME_MESSAGE;
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return DEFAULT_HOME_MESSAGE;
   }
@@ -238,8 +278,11 @@ export async function getHomeMessageContent(): Promise<HomeMessageContent> {
 }
 
 export async function updateHomeMessageContent(content: Partial<HomeMessageContent>) {
+  const ref = getHomeMessageRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    HOME_MESSAGE_REF,
+    ref,
     {
       ...content,
       updatedAt: Date.now(),
@@ -249,7 +292,10 @@ export async function updateHomeMessageContent(content: Partial<HomeMessageConte
 }
 
 export async function getPromotionalEvent(): Promise<PromotionalEvent | null> {
-  const snapshot = await getDoc(PROMOTIONAL_EVENT_REF);
+  const ref = getPromotionalEventRef();
+  if (!ref) return null;
+
+  const snapshot = await getDoc(ref);
 
   if (!snapshot.exists()) {
     return null;
@@ -267,8 +313,11 @@ export async function getPromotionalEvent(): Promise<PromotionalEvent | null> {
 }
 
 export async function updatePromotionalEvent(content: Partial<Omit<PromotionalEvent, "id">>) {
+  const ref = getPromotionalEventRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    PROMOTIONAL_EVENT_REF,
+    ref,
     {
       ...content,
       updatedAt: Date.now(),
@@ -278,7 +327,10 @@ export async function updatePromotionalEvent(content: Partial<Omit<PromotionalEv
 }
 
 export async function getSiteAssets(): Promise<SiteAssets> {
-  const snapshot = await getDoc(SITE_ASSETS_REF);
+  const ref = getSiteAssetsRef();
+  if (!ref) return {};
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {};
   }
@@ -286,8 +338,11 @@ export async function getSiteAssets(): Promise<SiteAssets> {
 }
 
 export async function saveSiteAssetUrl(field: string, url: string) {
+  const ref = getSiteAssetsRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    SITE_ASSETS_REF,
+    ref,
     {
       [field]: url,
       updatedAt: Date.now(),
@@ -297,8 +352,11 @@ export async function saveSiteAssetUrl(field: string, url: string) {
 }
 
 export async function deleteSiteAssetUrl(field: string) {
+  const ref = getSiteAssetsRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    SITE_ASSETS_REF,
+    ref,
     {
       [field]: deleteField(),
       updatedAt: Date.now(),
@@ -326,7 +384,12 @@ export function normalizeImageManagerSettings(input?: Partial<ImageManagerSettin
 }
 
 export async function getImageManagerSettings(): Promise<ImageManagerSettings> {
-  const snapshot = await getDoc(IMAGE_MANAGER_REF);
+  const ref = getImageManagerRef();
+  if (!ref) {
+    return {};
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {};
   }
@@ -335,8 +398,11 @@ export async function getImageManagerSettings(): Promise<ImageManagerSettings> {
 }
 
 export async function updateImageManagerSettings(content: Partial<ImageManagerSettings>) {
+  const ref = getImageManagerRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    IMAGE_MANAGER_REF,
+    ref,
     {
       ...content,
       updatedAt: Date.now(),
@@ -346,6 +412,8 @@ export async function updateImageManagerSettings(content: Partial<ImageManagerSe
 }
 
 export async function uploadStorageFile(storagePath: string, file: File, onProgress?: (value: number) => void) {
+  requireStorage();
+
   const fullStoragePath = `${storagePath}/${Date.now()}_${file.name}`;
   const storageRef = ref(storage, fullStoragePath);
   const uploadTask = uploadBytesResumable(storageRef, file);
@@ -390,7 +458,10 @@ export async function uploadSiteAssetFile({ field, storagePath, file, onProgress
 export async function getAboutPageContent(fallback: AboutPageContent): Promise<AboutPageContent> {
   try {
     // Force fresh fetch from pages/about
-    const aboutSnapshot = await getDocFromServer(doc(db, "pages", "about"));
+    const ref = getAboutPageRef();
+    if (!ref) return fallback;
+
+    const aboutSnapshot = await getDocFromServer(ref);
     
     if (!aboutSnapshot.exists()) return fallback;
     
@@ -446,29 +517,42 @@ export async function getAboutPageContent(fallback: AboutPageContent): Promise<A
 }
 
 export async function updateAboutPageContent(content: Partial<AboutPageContent>) {
-  await setDoc(ABOUT_PAGE_REF, { ...content, updatedAt: Date.now() }, { merge: true });
+  const ref = getAboutPageRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
+  await setDoc(ref, { ...content, updatedAt: Date.now() }, { merge: true });
 }
 
 // ============ EARLY LIFE CARDS (NEW) ============
 export async function getEarlyLifeCards(): Promise<EarlyLifeCard[]> {
+  if (!db) return [];
+
   const q = query(collection(db, EARLY_LIFE_COLLECTION), orderBy("order", "asc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as EarlyLifeCard));
 }
 
 export async function addEarlyLifeCard(card: Omit<EarlyLifeCard, "id">) {
+  requireFirestore("Firestore write");
+
   return await addDoc(collection(db, EARLY_LIFE_COLLECTION), card);
 }
 
 export async function updateEarlyLifeCard(id: string, data: Partial<Omit<EarlyLifeCard, "id" | "order">>) {
+  requireFirestore("Firestore write");
+
   await updateDoc(doc(db, EARLY_LIFE_COLLECTION, id), data);
 }
 
 export async function deleteEarlyLifeCard(id: string) {
+  requireFirestore("Firestore write");
+
   await deleteDoc(doc(db, EARLY_LIFE_COLLECTION, id));
 }
 
 export async function reorderEarlyLifeCards(updates: { id: string; order: number }[]) {
+  requireFirestore("Firestore write");
+
   const batch = writeBatch(db);
   updates.forEach(({ id, order }) => {
     batch.update(doc(db, EARLY_LIFE_COLLECTION, id), { order });
@@ -478,25 +562,44 @@ export async function reorderEarlyLifeCards(updates: { id: string; order: number
 
 // ============ CORE BELIEFS (NEW) ============
 export async function getCoreBeliefs(): Promise<CoreBelief[]> {
+  if (!db) return [];
+
   const q = query(collection(db, CORE_BELIEFS_COLLECTION), orderBy("order", "asc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CoreBelief));
 }
 
 export async function addCoreBelief(belief: Omit<CoreBelief, "id">) {
+  requireFirestore("Firestore write");
+
   return await addDoc(collection(db, CORE_BELIEFS_COLLECTION), belief);
 }
 
 export async function updateCoreBelief(id: string, data: Partial<Omit<CoreBelief, "id" | "order">>) {
+  requireFirestore("Firestore write");
+
   await updateDoc(doc(db, CORE_BELIEFS_COLLECTION, id), data);
 }
 
 export async function deleteCoreBelief(id: string) {
+  requireFirestore("Firestore write");
+
   await deleteDoc(doc(db, CORE_BELIEFS_COLLECTION, id));
 }
 
 export async function getVideoSection(): Promise<VideoSection> {
-  const snapshot = await getDoc(VIDEO_SECTION_REF);
+  const ref = getVideoSectionRef();
+  if (!ref) {
+    return {
+      videoUrl: "https://player.vimeo.com/video/1102105273",
+      title: "Global Legacy",
+      description: "A visual testament to transformations that transcend borders.",
+      thumbnailUrl: "",
+      embedCode: "",
+    };
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {
       videoUrl: "https://player.vimeo.com/video/1102105273",
@@ -518,12 +621,28 @@ export async function getVideoSection(): Promise<VideoSection> {
 }
 
 export async function updateVideoSection(data: Partial<VideoSection>) {
-  await setDoc(VIDEO_SECTION_REF, { ...data, updatedAt: Date.now() }, { merge: true });
+  const ref = getVideoSectionRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
+  await setDoc(ref, { ...data, updatedAt: Date.now() }, { merge: true });
 }
 
 // ============ MISSION SECTION (NEW) ============
 export async function getMissionSection(): Promise<MissionSection> {
-  const snapshot = await getDoc(MISSION_REF);
+  const ref = getMissionRef();
+  if (!ref) {
+    return {
+      title: "My Mission Today",
+      items: [
+        "Unlock abundance & financial freedom",
+        "Overcome limiting beliefs",
+        "Heal through intuitive methods",
+        "Harness personal energy"
+      ],
+    };
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {
       title: "My Mission Today",
@@ -539,12 +658,27 @@ export async function getMissionSection(): Promise<MissionSection> {
 }
 
 export async function updateMissionSection(data: Partial<MissionSection>) {
-  await setDoc(MISSION_REF, { ...data, updatedAt: Date.now() }, { merge: true });
+  const ref = getMissionRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
+  await setDoc(ref, { ...data, updatedAt: Date.now() }, { merge: true });
 }
 
 // ============ RECOGNITIONS SECTION (NEW) ============
 export async function getRecognitionsSection(): Promise<RecognitionsSection> {
-  const snapshot = await getDoc(RECOGNITIONS_REF);
+  const ref = getRecognitionsRef();
+  if (!ref) {
+    return {
+      title: "Recognitions",
+      items: [
+        "25+ million INR raised for social causes",
+        "Life Changer Award for coaching",
+        "Distinguished Alumni Award from VIT"
+      ],
+    };
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return {
       title: "Recognitions",
@@ -559,11 +693,16 @@ export async function getRecognitionsSection(): Promise<RecognitionsSection> {
 }
 
 export async function updateRecognitionsSection(data: Partial<RecognitionsSection>) {
-  await setDoc(RECOGNITIONS_REF, { ...data, updatedAt: Date.now() }, { merge: true });
+  const ref = getRecognitionsRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
+  await setDoc(ref, { ...data, updatedAt: Date.now() }, { merge: true });
 }
 
 // ============ FOOTER SERVICES (Existing) ============
 export async function getFooterContactInfo(): Promise<ContactInfo | null> {
+  if (!db) return null;
+
   const settingsDoc = await getDoc(doc(db, "settings", "contact_info"));
   if (settingsDoc.exists()) {
     return settingsDoc.data() as ContactInfo;
@@ -580,6 +719,8 @@ export async function getFooterContactInfo(): Promise<ContactInfo | null> {
 }
 
 export async function getFooterSocialPlatforms(): Promise<SocialPlatform[]> {
+  if (!db) return [];
+
   const snap = await getDoc(doc(db, "settings", "footer_socials"));
   if (!snap.exists()) return [];
   const data = snap.data();
@@ -587,7 +728,12 @@ export async function getFooterSocialPlatforms(): Promise<SocialPlatform[]> {
 }
 
 export async function getPathwaysContent(): Promise<PathwaysContent> {
-  const snapshot = await getDoc(PATHWAYS_REF);
+  const ref = getPathwaysRef();
+  if (!ref) {
+    return { ...DEFAULT_PATHWAYS_CONTENT };
+  }
+
+  const snapshot = await getDoc(ref);
   if (!snapshot.exists()) {
     return { ...DEFAULT_PATHWAYS_CONTENT };
   }
@@ -631,8 +777,11 @@ export async function getPathwaysContent(): Promise<PathwaysContent> {
 }
 
 export async function updatePathwaysContent(content: PathwaysContent) {
+  const ref = getPathwaysRef();
+  if (!ref) throw createFirebaseUnavailableError("Firestore write");
+
   await setDoc(
-    PATHWAYS_REF,
+    ref,
     {
       eyebrow: content.eyebrow,
       heading: content.heading,
@@ -642,7 +791,6 @@ export async function updatePathwaysContent(content: PathwaysContent) {
     { merge: true }
   );
 }
-
 // ============ BLOG SERVICES (NEW) ============
 const BLOG_POSTS_COLLECTION = "blogs";
 
@@ -661,14 +809,14 @@ export interface BlogPostRecord {
   publishedAt: string;
   createdAt: number;
   updatedAt: number;
-  richContent: string;        // new field: HTML string from Quill
+  richContent: string;
 }
 
 export type CreateBlogPostInput = {
   title: string;
   shortDescription: string;
   keywords: string[];
-  richContent: string;        // instead of contentBlocks
+  richContent: string;
   imageUrl?: string;
   imageFile?: File | null;
   author?: string;
@@ -680,7 +828,7 @@ export type UpdateBlogPostInput = {
   title: string;
   shortDescription: string;
   keywords: string[];
-  richContent: string;        // instead of contentBlocks
+  richContent: string;
   imageUrl?: string;
   imageFile?: File | null;
   author?: string;
@@ -688,7 +836,6 @@ export type UpdateBlogPostInput = {
   onImageUploadProgress?: (value: number) => void;
 };
 
-// Helper: slugify title
 function slugifyBlogTitle(value: string) {
   return value
     .toLowerCase()
@@ -697,7 +844,6 @@ function slugifyBlogTitle(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-// Helper: format published date
 function formatPublishedDate(timestamp: number) {
   return new Date(timestamp).toLocaleDateString("en-US", {
     month: "long",
@@ -706,20 +852,59 @@ function formatPublishedDate(timestamp: number) {
   });
 }
 
-// Helper: convert timestamp (Firestore Timestamp or number)
 function toUnixMs(value: unknown, fallback: number) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (value && typeof value === "object" && "seconds" in (value as any) && typeof (value as any).seconds === "number") {
-    return (value as any).seconds * 1000;
+  if (value && typeof value === "object" && "seconds" in (value as Record<string, unknown>) && typeof (value as Record<string, unknown>).seconds === "number") {
+    return ((value as Record<string, unknown>).seconds as number) * 1000;
   }
   return fallback;
 }
 
-/**
- * Map Firestore doc to BlogPostRecord.
- * Backward compatibility: if richContent exists, use it.
- * Otherwise, try to build HTML from old contentBlocks/contentSections.
- */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function convertLegacyBlocksToHtml(blocks: { type: string; content: string }[]): string {
+  let html = "";
+  for (const block of blocks) {
+    const content = block.content.trim();
+    if (!content) continue;
+
+    switch (block.type) {
+      case "heading":
+        html += `<h2 class="text-2xl font-bold text-[#D4AF37] mt-8 mb-4">${escapeHtml(content)}</h2>`;
+        break;
+      case "subheading":
+        html += `<h3 class="text-xl font-semibold text-[#4B2E83] mt-6 mb-3">${escapeHtml(content)}</h3>`;
+        break;
+      case "quote":
+        html += `<blockquote class="border-l-4 border-[#D4AF37] bg-[#4B2E83]/10 px-4 py-3 my-4 text-lg italic">${escapeHtml(content)}</blockquote>`;
+        break;
+      default:
+        html += `<p class="mb-4 text-lg leading-relaxed">${escapeHtml(content)}</p>`;
+    }
+  }
+
+  return html || "<p>No content available.</p>";
+}
+
+function convertLegacySectionsToHtml(sections: { heading: string; paragraphs: string[] }[]): string {
+  let html = "";
+  for (const section of sections) {
+    html += `<h2 class="text-2xl font-bold text-[#D4AF37] mt-8 mb-4">${escapeHtml(section.heading)}</h2>`;
+    for (const paragraph of section.paragraphs) {
+      html += `<p class="mb-4 text-lg leading-relaxed">${escapeHtml(paragraph)}</p>`;
+    }
+  }
+
+  return html || "<p>No content available.</p>";
+}
+
 function mapBlogDoc(id: string, data: Record<string, unknown>): BlogPostRecord {
   const now = Date.now();
   const createdAt = toUnixMs(data.createdAt, now);
@@ -730,28 +915,28 @@ function mapBlogDoc(id: string, data: Record<string, unknown>): BlogPostRecord {
     typeof data.shortDescription === "string"
       ? data.shortDescription.trim()
       : typeof data.excerpt === "string"
-      ? data.excerpt.trim()
-      : "";
+        ? data.excerpt.trim()
+        : "";
 
   const keywords = Array.isArray(data.keywords)
     ? data.keywords.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
+
   const tags = Array.isArray(data.tags)
     ? data.tags.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : keywords;
 
-  // ---- RICH CONTENT (new) ----
   let richContent = "";
   if (typeof data.richContent === "string" && data.richContent.trim().length > 0) {
     richContent = data.richContent.trim();
   } else {
-    // Fallback for old posts: convert old contentBlocks or contentSections to basic HTML
-    const oldBlocks = Array.isArray(data.contentBlocks) ? data.contentBlocks : [];
-    const oldSections = Array.isArray(data.contentSections) ? data.contentSections : [];
-    if (oldBlocks.length > 0) {
-      richContent = convertLegacyBlocksToHtml(oldBlocks as any[]);
-    } else if (oldSections.length > 0) {
-      richContent = convertLegacySectionsToHtml(oldSections as { heading: string; paragraphs: string[] }[]);
+    const legacyBlocks = Array.isArray(data.contentBlocks) ? data.contentBlocks : [];
+    const legacySections = Array.isArray(data.contentSections) ? data.contentSections : [];
+
+    if (legacyBlocks.length > 0) {
+      richContent = convertLegacyBlocksToHtml(legacyBlocks as { type: string; content: string }[]);
+    } else if (legacySections.length > 0) {
+      richContent = convertLegacySectionsToHtml(legacySections as { heading: string; paragraphs: string[] }[]);
     } else {
       richContent = `<p>${shortDescription || "No content available."}</p>`;
     }
@@ -788,51 +973,9 @@ function mapBlogDoc(id: string, data: Record<string, unknown>): BlogPostRecord {
   };
 }
 
-// Legacy converters (so old posts still show something)
-function convertLegacyBlocksToHtml(blocks: { type: string; content: string }[]): string {
-  let html = "";
-  for (const block of blocks) {
-    const content = block.content.trim();
-    if (!content) continue;
-    switch (block.type) {
-      case "heading":
-        html += `<h2 class="text-2xl font-bold text-[#D4AF37] mt-8 mb-4">${escapeHtml(content)}</h2>`;
-        break;
-      case "subheading":
-        html += `<h3 class="text-xl font-semibold text-[#4B2E83] mt-6 mb-3">${escapeHtml(content)}</h3>`;
-        break;
-      case "quote":
-        html += `<blockquote class="border-l-4 border-[#D4AF37] bg-[#4B2E83]/10 px-4 py-3 my-4 text-lg italic">${escapeHtml(content)}</blockquote>`;
-        break;
-      default:
-        html += `<p class="mb-4 text-lg leading-relaxed">${escapeHtml(content)}</p>`;
-    }
-  }
-  return html || "<p>No content available.</p>";
-}
-
-function convertLegacySectionsToHtml(sections: { heading: string; paragraphs: string[] }[]): string {
-  let html = "";
-  for (const section of sections) {
-    html += `<h2 class="text-2xl font-bold text-[#D4AF37] mt-8 mb-4">${escapeHtml(section.heading)}</h2>`;
-    for (const para of section.paragraphs) {
-      html += `<p class="mb-4 text-lg leading-relaxed">${escapeHtml(para)}</p>`;
-    }
-  }
-  return html || "<p>No content available.</p>";
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// Upload blog image (unchanged)
 export async function uploadBlogImage(file: File, slug: string, onProgress?: (value: number) => void) {
+  requireStorage();
+
   const safeFileName = file.name.replace(/\s+/g, "-");
   const storageRef = ref(storage, `blogs/${slug}/${Date.now()}-${safeFileName}`);
   const uploadTask = uploadBytesResumable(storageRef, file);
@@ -855,16 +998,19 @@ export async function uploadBlogImage(file: File, slug: string, onProgress?: (va
       }
     );
   });
+
   return downloadUrl;
 }
 
-// Get all blog posts
 export async function getBlogPosts(): Promise<BlogPostRecord[]> {
+  if (!db) return [];
+
   try {
     const snapshot = await getDocs(collection(db, BLOG_POSTS_COLLECTION));
     const posts = snapshot.docs
       .map((item) => mapBlogDoc(item.id, item.data() as Record<string, unknown>))
       .sort((a, b) => b.createdAt - a.createdAt);
+
     console.log(`[getBlogPosts] fetched ${posts.length} posts`);
     return posts;
   } catch (error) {
@@ -873,20 +1019,20 @@ export async function getBlogPosts(): Promise<BlogPostRecord[]> {
   }
 }
 
-// Create a new blog post
 export async function createBlogPost(input: CreateBlogPostInput) {
+  requireFirestore("Firestore write");
+
   const timestamp = Date.now();
   const title = input.title.trim();
   const slug = slugifyBlogTitle(title) || `blog-${timestamp}`;
   const shortDescription = input.shortDescription.trim();
-  const keywords = input.keywords.map((k) => k.trim()).filter((k) => k.length > 0);
+  const keywords = input.keywords.map((keyword) => keyword.trim()).filter((keyword) => keyword.length > 0);
 
   let finalImageUrl = input.imageUrl?.trim() || "";
   if (input.imageFile) {
     finalImageUrl = await uploadBlogImage(input.imageFile, slug, input.onImageUploadProgress);
   }
 
-  // Save richContent as HTML string
   const richContent = input.richContent.trim() || "<p>No content provided.</p>";
 
   await addDoc(collection(db, BLOG_POSTS_COLLECTION), {
@@ -900,15 +1046,16 @@ export async function createBlogPost(input: CreateBlogPostInput) {
     tags: keywords,
     author: input.author?.trim() || "",
     readTime: input.readTime?.trim() || "",
-    richContent,                           // new field
+    richContent,
     publishedAt: formatPublishedDate(timestamp),
     createdAt: timestamp,
     updatedAt: timestamp,
   });
 }
 
-// Update an existing blog post
 export async function updateBlogPost(id: string, input: UpdateBlogPostInput) {
+  requireFirestore("Firestore write");
+
   const existingDoc = await getDoc(doc(db, BLOG_POSTS_COLLECTION, id));
   const existingData = existingDoc.exists() ? (existingDoc.data() as Record<string, unknown>) : {};
 
@@ -917,7 +1064,7 @@ export async function updateBlogPost(id: string, input: UpdateBlogPostInput) {
   const fallbackSlug = typeof existingData.slug === "string" ? existingData.slug : "";
   const slug = fallbackSlug || slugifyBlogTitle(title) || `blog-${Date.now()}`;
   const shortDescription = input.shortDescription.trim();
-  const keywords = input.keywords.map((k) => k.trim()).filter((k) => k.length > 0);
+  const keywords = input.keywords.map((keyword) => keyword.trim()).filter((keyword) => keyword.length > 0);
 
   let finalImageUrl = input.imageUrl?.trim() || "";
   if (input.imageFile) {
@@ -942,18 +1089,18 @@ export async function updateBlogPost(id: string, input: UpdateBlogPostInput) {
       tags: keywords,
       author: input.author?.trim() || "",
       readTime: input.readTime?.trim() || "",
-      richContent,        // new field
+      richContent,
       updatedAt: Date.now(),
     },
     { merge: true }
   );
 }
 
-// Delete blog post
 export async function deleteBlogPost(id: string) {
+  requireFirestore("Firestore write");
+
   await deleteDoc(doc(db, BLOG_POSTS_COLLECTION, id));
 }
-
 // ============ FAQ SERVICES (NEW) ============
 const FAQS_COLLECTION = "faqs";
 
@@ -999,6 +1146,10 @@ export function getLocalFaqs(): FAQRecord[] {
 export async function getFaqs(options: GetFaqsOptions = {}): Promise<FAQRecord[]> {
   const { fallbackToLocal = true } = options;
   try {
+    if (!db) {
+      return fallbackToLocal ? getLocalFaqs() : [];
+    }
+
     const q = query(collection(db, FAQS_COLLECTION), orderBy("order", "asc"));
     const snapshot = await getDocs(q);
 
@@ -1038,6 +1189,8 @@ export async function getFaqs(options: GetFaqsOptions = {}): Promise<FAQRecord[]
 }
 
 export async function createFaq(input: CreateFAQInput): Promise<string> {
+  requireFirestore("Firestore write");
+
   const timestamp = Date.now();
   const safeOrder = Number.isFinite(input.order) ? Math.max(0, Math.trunc(input.order)) : 0;
 
@@ -1054,6 +1207,8 @@ export async function createFaq(input: CreateFAQInput): Promise<string> {
 }
 
 export async function updateFaq(id: string, input: UpdateFAQInput): Promise<void> {
+  requireFirestore("Firestore write");
+
   const faqRef = doc(db, FAQS_COLLECTION, id);
   const existingFaq = await getDoc(faqRef);
   if (!existingFaq.exists()) {
@@ -1079,6 +1234,8 @@ export async function updateFaq(id: string, input: UpdateFAQInput): Promise<void
 }
 
 export async function deleteFaq(id: string): Promise<void> {
+  requireFirestore("Firestore write");
+
   await deleteDoc(doc(db, FAQS_COLLECTION, id));
   console.log(`[deleteFaq] Deleted FAQ with ID: ${id}`);
 }

@@ -42,6 +42,8 @@ export default function BlogUploadForm({
   const [author, setAuthor] = useState("Jothi Ramesh");
   const [readTime, setReadTime] = useState("");
   const [richContent, setRichContent] = useState("<p>Start writing your blog post here...</p>");
+  const [editorMode, setEditorMode] = useState<"visual" | "raw">("visual");
+  const [showPreview, setShowPreview] = useState(false);
   const [localError, setLocalError] = useState("");
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -92,6 +94,30 @@ export default function BlogUploadForm({
     setKeywords((prev) => prev.filter((k) => k !== keyword));
   };
 
+  const handleHtmlFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const isHtmlFile = file.name.toLowerCase().endsWith(".html") || file.type === "text/html";
+    if (!isHtmlFile) {
+      setLocalError("Please upload a valid .html file.");
+      event.target.value = "";
+      return;
+    }
+
+    try {
+      const rawHtml = await file.text();
+      setRichContent(rawHtml);
+      setEditorMode("raw");
+      setLocalError("");
+    } catch (error) {
+      console.error("Failed to read HTML file:", error);
+      setLocalError("Could not read the selected HTML file.");
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLocalError("");
@@ -104,7 +130,14 @@ export default function BlogUploadForm({
       setLocalError("Short description is required.");
       return;
     }
-    if (!richContent.trim() || richContent === "<p><br></p>") {
+
+    const normalizedHtml = richContent
+      .replace(/<br\s*\/?>/gi, "")
+      .replace(/&nbsp;/gi, "")
+      .replace(/<[^>]+>/g, "")
+      .trim();
+
+    if (!richContent.trim() || richContent === "<p><br></p>" || richContent === "<div><br></div>" || normalizedHtml.length === 0) {
       setLocalError("Blog content cannot be empty.");
       return;
     }
@@ -120,6 +153,9 @@ export default function BlogUploadForm({
       richContent: richContent.trim(),
     });
   };
+
+  const previewImageUrl = previewImage || imageUrl || "/bannerimg.jpg";
+  const previewBodyHtml = richContent.trim() || "<p>Start writing your blog post here...</p>";
 
   return (
     <form onSubmit={handleFormSubmit} className="space-y-6">
@@ -259,11 +295,48 @@ export default function BlogUploadForm({
         </div>
       </div>
 
-      <RichTextEditor
-        value={richContent}
-        onChange={setRichContent}
-        placeholder="Start writing your blog post here..."
-      />
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-[#4B2E83]/15 bg-[#F3ECFF] p-1">
+            <button
+              type="button"
+              onClick={() => setEditorMode("visual")}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${editorMode === "visual" ? "bg-[#4B2E83] text-white" : "text-[#4B2E83]"}`}
+            >
+              Visual Editor
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorMode("raw")}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold ${editorMode === "raw" ? "bg-[#4B2E83] text-white" : "text-[#4B2E83]"}`}
+            >
+              Raw HTML Code
+            </button>
+          </div>
+
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-3 py-2 text-sm font-semibold text-[#4B2E83] transition hover:bg-[#D4AF37]/20">
+            <UploadCloud className="h-4 w-4" />
+            <span>Upload .html File</span>
+            <input type="file" accept=".html,text/html" onChange={handleHtmlFileUpload} className="hidden" />
+          </label>
+        </div>
+
+        {editorMode === "visual" ? (
+          <RichTextEditor
+            value={richContent}
+            onChange={setRichContent}
+            placeholder="Start writing your blog post here..."
+          />
+        ) : (
+          <textarea
+            value={richContent}
+            onChange={(e) => setRichContent(e.target.value)}
+            rows={18}
+            className="w-full rounded-lg border border-[#4B2E83]/20 bg-white px-4 py-3 font-mono text-sm text-[#1A0B2E] outline-none focus:ring-2 focus:ring-[#4B2E83]/30"
+            placeholder="<p>Paste HTML here...</p>"
+          />
+        )}
+      </div>
 
       {uploadProgress !== null && (
         <div className="rounded-lg border border-[#D4AF37]/50 bg-[#D4AF37]/12 px-3 py-2 text-sm text-[#4B2E83]">
@@ -281,6 +354,15 @@ export default function BlogUploadForm({
         >
           {isSubmitting ? "Saving..." : submitLabel ?? "Create Post"}
         </button>
+
+        <button
+          type="button"
+          onClick={() => setShowPreview(true)}
+          className="rounded-lg border border-[#4B2E83]/25 bg-white px-7 py-3 text-base font-semibold text-[#4B2E83]"
+        >
+          👁️ Preview Blog
+        </button>
+
         <button
           type="button"
           onClick={onCancel}
@@ -289,6 +371,68 @@ export default function BlogUploadForm({
           Cancel
         </button>
       </div>
+
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
+          <div className="relative w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50 sticky top-0 z-10">
+              <h3 className="text-lg font-bold text-gray-800">Blog Post Live Preview</h3>
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                className="p-2 rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-200 transition-colors text-xl font-bold"
+                aria-label="Close Preview"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 block [&_*]:block [&_span]:inline [&_a]:inline [&_strong]:inline [&_b]:inline [&_i]:inline [&_em]:inline">
+              <div className="w-full max-w-5xl mx-auto">
+                <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.08em] text-[#D4AF37]">
+                  {readTime && <span>{readTime}</span>}
+                  {keywords.slice(0, 3).map((tag) => (
+                    <span key={tag} className="rounded-full bg-[#4B2E83] px-2 py-1 text-[10px] text-white">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+
+                <img
+                  src={previewImageUrl}
+                  alt={title || "Blog preview"}
+                  className="mb-5 h-64 w-full rounded-2xl object-cover border border-[#D4AF37]/20"
+                />
+
+                <h1 className="mb-3 text-3xl font-bold text-[#4B2E83]">
+                  {title || "Untitled Blog Post"}
+                </h1>
+
+                {author && (
+                  <p className="mb-4 text-sm font-semibold uppercase text-gray-600">
+                    By {author}
+                  </p>
+                )}
+
+                <div
+                  dangerouslySetInnerHTML={{ __html: previewBodyHtml }}
+                  className="w-full max-w-5xl mx-auto p-6 bg-white rounded-2xl border text-left overflow-y-auto block [&_*]:block [&_span]:inline [&_a]:inline [&_strong]:inline [&_b]:inline [&_i]:inline [&_em]:inline [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:my-4 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:my-3 [&_p]:my-3 [&_p]:leading-relaxed"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end border-t bg-gray-50 px-6 py-4 sticky bottom-0 z-10">
+              <button
+                type="button"
+                onClick={() => setShowPreview(false)}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
