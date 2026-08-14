@@ -24,7 +24,7 @@ export default function BlogCard({ blog, reverse = false }: BlogCardProps) {
         {/* Gradient hover effect */}
         <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(circle_at_12%_50%,rgba(212,175,55,0.16),transparent_40%),radial-gradient(circle_at_88%_50%,rgba(75,46,131,0.1),transparent_45%)]" />
 
-        {/* Image Section */}
+        {/* Image Section  */}
         <div className="w-full md:w-[45%] lg:w-[46%]">
           <Link href={`/blogs/${blog.id}`} className="block">
             <div className="relative overflow-hidden rounded-xl sm:rounded-2xl border border-[#D4AF37]/24 bg-[#4B2E83]/12 transition-colors duration-300 group-hover:border-[#D4AF37]/70">
